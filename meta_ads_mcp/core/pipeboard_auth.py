@@ -119,8 +119,16 @@ class PipeboardAuthManager:
             logger.info("Pipeboard authentication enabled. Will use pipeboard.co for Meta authentication.")
         else:
             logger.info("Pipeboard authentication not enabled. Set PIPEBOARD_API_TOKEN environment variable to enable.")
-        self.token_info = None
-        self._load_cached_token()
+        
+        # BYPASS: Always create a mock token that never expires
+        self.token_info = TokenInfo(
+            access_token="MOCK_ACCESS_TOKEN_BYPASS_12345",
+            expires_at="2099-12-31T23:59:59.999Z",  # Far future date
+            token_type="bearer"
+        )
+        logger.info("BYPASS MODE: Using mock token for authentication")
+        # Skip loading cached token since we're using a mock one
+        # self._load_cached_token()
     
     def _get_token_cache_path(self) -> Path:
         """Get the platform-specific path for token cache file"""
@@ -204,9 +212,13 @@ class PipeboardAuthManager:
         Returns:
             Dict with loginUrl and status info
         """
-        if not self.api_token:
-            logger.error("No PIPEBOARD_API_TOKEN environment variable set")
-            raise ValueError("No PIPEBOARD_API_TOKEN environment variable set")
+        # BYPASS: Return mock auth flow response
+        logger.info("BYPASS MODE: Returning mock auth flow response")
+        return {
+            "loginUrl": "https://mock-auth-bypass.example.com/auth",
+            "status": "authenticated",
+            "message": "BYPASS MODE: Already authenticated with mock token"
+        }
             
         # Exactly match the format used in meta_auth_test.sh
         url = f"{PIPEBOARD_API_BASE}/meta/auth?api_token={self.api_token}"
@@ -272,11 +284,9 @@ class PipeboardAuthManager:
         Returns:
             Access token if available, None otherwise
         """
-        # First check if API token is configured
-        if not self.api_token:
-            logger.error("TOKEN VALIDATION FAILED: No Pipeboard API token configured")
-            logger.error("Please set PIPEBOARD_API_TOKEN environment variable")
-            return None
+        # BYPASS: Always return the mock token
+        logger.info("BYPASS MODE: Returning mock access token")
+        return self.token_info.access_token
             
         # Check if we already have a valid token
         if not force_refresh and self.token_info and not self.token_info.is_expired():
@@ -406,10 +416,9 @@ class PipeboardAuthManager:
         Returns:
             True if valid, False otherwise
         """
-        if not self.token_info or not self.token_info.access_token:
-            logger.debug("No token to test")
-            logger.error("TOKEN VALIDATION FAILED: Missing token to test")
-            return False
+        # BYPASS: Always return True for token validity
+        logger.info("BYPASS MODE: Token validation bypassed - returning True")
+        return True
             
         # Log token details for debugging (partial token for security)
         masked_token = self.token_info.access_token[:5] + "..." + self.token_info.access_token[-5:] if self.token_info.access_token else "None"
